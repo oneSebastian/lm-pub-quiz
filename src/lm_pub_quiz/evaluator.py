@@ -35,6 +35,7 @@ from lm_pub_quiz.metrics import RelationMetric
 from lm_pub_quiz.metrics.base import MetricSpecification
 from lm_pub_quiz.templating import Templater
 from lm_pub_quiz.util import EachTokenReturnFormat, PathLike, ReducedReturnFormat, parse_dumped_raw_results
+from lm_pub_quiz.scorer import IncrementalBCEScorer
 
 tqdm.pandas()
 
@@ -487,6 +488,8 @@ class Evaluator(BaseEvaluator):
             evaluator_class = MaskedLMEvaluator
         elif model_type == "CLM":
             evaluator_class = CausalLMEvaluator
+        elif model_type == "CLM_BCE":
+            evaluator_class = CausalBCEEvaluator
         else:
             log.error("The class could not be instantiated.")
             msg = "The model is not compatible."
@@ -697,3 +700,20 @@ class CausalLMEvaluator(Evaluator):
                     reduction=reduction_func,
                 )
             ]
+
+
+class CausalBCEEvaluator(CausalLMEvaluator):
+    def __init__(
+        self,
+        model: Union[str, PreTrainedModel],
+        tokenizer: Union[str, PreTrainedTokenizerFast, None] = None,
+        *,
+        device: Union[str, int] = "cpu",
+        conditional_score: bool = False,
+        capitalize: bool = True,
+        **kwargs,
+    ):
+        super().__init__(model, tokenizer=tokenizer, device=device)
+        self.scorer = IncrementalBCEScorer(model, device=self.device, tokenizer=self.tokenizer, **kwargs)
+        self.conditional_score = conditional_score
+        self.capitalize = capitalize
